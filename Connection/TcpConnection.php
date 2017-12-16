@@ -273,9 +273,9 @@ class TcpConnection extends ConnectionInterface
                 Worker::log($e);
                 exit(250);
             }
-	} else {
-	    trigger_error('Call to undefined method '.__CLASS__.'::'.$name.'()', E_USER_ERROR);
-	}
+        } else {
+            trigger_error('Call to undefined method '.__CLASS__.'::'.$name.'()', E_USER_ERROR);
+        }
 
     }
 
@@ -563,8 +563,16 @@ class TcpConnection extends ConnectionInterface
     {
         // SSL handshake.
         if ($this->transport === 'ssl' && $this->_sslHandshakeCompleted !== true) {
-            $ret = stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_SSLv2_SERVER | 
-					       STREAM_CRYPTO_METHOD_SSLv23_SERVER);
+            $cryptoType = STREAM_CRYPTO_METHOD_SSLv2_SERVER |
+                STREAM_CRYPTO_METHOD_SSLv23_SERVER;
+
+            if (version_compare(PHP_VERSION, '5.6.0') >= 0) {
+                $cryptoType |= STREAM_CRYPTO_METHOD_TLSv1_0_SERVER |
+                    STREAM_CRYPTO_METHOD_TLSv1_1_SERVER |
+                    STREAM_CRYPTO_METHOD_TLSv1_2_SERVER;
+            }
+
+            $ret = stream_socket_enable_crypto($socket, true, $cryptoType);
             // Negotiation has failed.
             if(false === $ret) {
                 if (!feof($socket)) {
@@ -701,7 +709,7 @@ class TcpConnection extends ConnectionInterface
             $this->bytesWritten += $len;
             Worker::$globalEvent->del($this->_socket, EventInterface::EV_WRITE);
             $this->_sendBuffer = '';
-            // Try to emit onBufferDrain callback when the send buffer becomes empty. 
+            // Try to emit onBufferDrain callback when the send buffer becomes empty.
             if ($this->onBufferDrain) {
                 try {
                     call_user_func($this->onBufferDrain, $this);
